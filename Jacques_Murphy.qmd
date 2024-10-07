@@ -1,0 +1,858 @@
+---
+title: "Model-Based Clustering and Variable Selection for Multivariate Count Data"
+author:
+- name: Julien Jacques
+  corresponding: true
+  email: julien.jacques@univ-lyon2.fr
+  affiliations: 
+  - name: Laboratoire ERIC, Université de Lyon
+- name: Thomas Brendan Murphy
+  email: brendan.murphy@ucd.ie
+  affiliations: 
+  - name: School of Mathematics \& Statistics, University College Dublin
+  - name: Institut d'Études Avancées, Université de Lyon
+date: last-modified
+date-modified: last-modified
+abstract: >+
+  Model-based clustering provides a principled way of developing clustering methods. We develop a new model-based clustering methods for count data. The method combines clustering and variable selection for improved clustering. The method is based on conditionally independent Poisson mixture models and Poisson generalized linear models. The method is demonstrated on simulated data and data from an ultra running race, where the method yields excellent clustering and variable selection performance.
+keywords: [Count data, Model-based clustering, Variable selection]
+citation:
+  type: article-journal
+  container-title: "Computo"
+  doi: "xxxx"
+  url: https://computo.sfds.asso.fr/template-computo-quarto
+  publisher: "Société Française de Statistique"
+  issn: "2824-7795"
+bibliography: references.bib
+draft: true
+published: false
+format:
+  computo-html: default
+  computo-pdf: default
+fontfamily: merriweather
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy = FALSE, fig.width = 5, fig.height = 5, echo = FALSE)
+options(htmltools.dir.version = FALSE)
+```
+
+---
+#<button type="button" class="btn" title="Print to PDF" onClick="window.print()">Export to PDF</button>
+---
+
+```{r packages, message = FALSE, warning=FALSE, eval=FALSE}
+renv::init()
+renv::install("mclust")
+renv::install("rio")
+renv::install("e1071")
+renv::install("plotly")
+renv::install("seriation")
+renv::install("magick")
+renv::snapshot()
+```
+
+```{r packages2, message = FALSE, warning=FALSE, eval=TRUE}
+library("mclust")
+library("rio")
+library("e1071")
+library("plotly")
+library("seriation")
+library("magick")
+```
+
+```{r functions, message = FALSE}
+source("./functions/poissonmix.R")
+```
+
+
+# Introduction
+
+Multivariate count data is ubiquitous in statistical applications, as ecology [@Chiquet2021], genomic [@Rau2015; @Silva2019]. These data arise when each observation consists of a vector of count values.
+Count data are often treated as continuous data and therefore modeled by a
+Gaussian distribution, this assumption is particularly poor when the
+measured counts are low. Instead, we use the reference
+distribution for count data which is the Poisson distribution
+[@Agresti_2002; @Inouye1998].
+
+When a data set is heterogeneous, clustering allows to extract
+homogeneous subsets from the whole data set. Many clustering methods,
+such as $k$-means [@Hartigan_1979], are geometric in nature, whereas many modern clustering approaches are based
+on probabilistic models. In this work, we use model-based clustering which has been developed for many types of data [@Bouveyron_2019; @McLachlanPeel2000; @Fruhwirth_2018].
+
+Modern data are often high-dimensional, that is the number of variables is
+often large. Among these variables, some are useful for the task of
+interest, some are useless for the task of interest and some others are useful but redundant.
+There is a need to select only the relevant variables, and that
+whatever is the task. Variable selection methods are widespread for supervised learning tasks, in particular to avoid overfitting. However, variable selection methods are less well developed for unsupervised learning tasks, such as clustering. Recently, several
+methods have been proposed for selecting the relevant variables in
+model-based clustering; we refer to @Fop_2018 and @McParlandMurphy2018 for recent detailed surveys.
+
+The goal of the present work is to provide a clustering and variable selection method
+for multivariate count data, which, to the best of our knowledge, has
+not yet been studied in depth.
+
+# Motivating Example
+
+The International Association of Ultrarunners (IAU) 24 hour World
+Championships were held in Katowice, Poland from September 8th to 9th,
+2012. Two hundred and sixty athletes representing twenty four countries
+entered the race, which was held on a course consisting of a 1.554 km
+looped route. An update of the number of laps covered by each athlete
+was recorded approximately every hour [@WhiteMurphy2016]. @fig-24H plots the number of
+loops recorded each hour for the three medalists.
+
+```{r medalists}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: "center"
+#| label: fig-24H
+#| fig-cap: "Number of loops per hour for the three medalists."
+load("X24H.Rdata")
+tmp <- sort(as.vector(rowSums(x)), decreasing = TRUE, index.return = TRUE)
+matplot(t(matrix(1:24, 3, 24,byrow = TRUE)), t(x[tmp$ix[1:3], 1:24]),type = "o",lty = 3,xlab = 'Hours', ylab = "Number of loops", xaxt = "n", yaxt = "n", pch = 1:3)
+axis(1, at = seq(6, 24, 6),labels = seq(6, 24, 6))
+axis(2, at = 6:9, labels = 6:9)
+legend("topright", 1:3, col = 1:3, legend=c("Gold medal", "Silver medal", "Bronze medal"), pch = 1:3, cex = 0.8)
+```
+
+We can see among these three runners different strategies, the second placed
+runner lapped at a regular rate, the first placed runner had a fast start but slowed later, and the third
+placed runner also started fast but slowed more than the first place runner. 
+
+Our first goal will be, to analyze the whole data set to identify the different running strategies and to
+evaluate which strategies are the best ones. The second goal is to identify which
+variables allows to distinguish between the clusters, in order to identify which
+hour is essential in the management of this endurance race.
+
+# Independent Poisson Mixture
+
+Let $X_n=(X_{n1}, X_{n2}, \ldots, X_{nM})$ be a random vector of counts
+for $n=1, 2, \ldots, N$. The goal is to clusters theses $N$ observations
+into $G$ clusters. Let $Z_n=(Z_{n1}, Z_{n2}, \ldots, Z_{nG})$ be the
+latent cluster indicator vector, where $Z_{ng}=1$ if observation $n$
+belongs to cluster $g$ and $Z_{ng}=0$ otherwise. We assume that
+${\mathbb P}\{Z_{ng}=1\} = \tau_g$ for $g=1,2, \ldots, G$. Let denote
+$\tau=(\tau_1,\ldots,\tau_G)$. The conditionally independent Poisson mixture model [@Karlis2018, Section 9.4.2.1]
+assumes that the elements of $X_n$ are independent Poisson distributed
+random variables, conditional on $Z_n$. That is, 
+$$
+\begin{aligned}
+Z_n & \sim  {\rm Multinomial}(1, \tau)\\
+X_{nm}|(Z_{ng}=1) & \sim  {\rm Poisson}(\lambda_{gm}), {\rm ~for~} m=1, 2, \ldots, M.
+\end{aligned}
+$$
+Alternative modelling frameworks exist, either to introduce
+some dependence between variables or to normalize the variables. We
+refer the interested reader to [@Karlis2018; @Bouveyron_2019, Chapter 6] for more details.
+
+Denoting the model parameters by $\theta=(\tau,\lambda)$ where
+$\lambda=(\lambda_{gm})_{1\leq g \leq G, 1\leq m \leq M}$, and where
+$X=(x_n)_{1\leq n \leq N}$ denotes the observations, the observed
+likelihood is 
+$$
+L(\theta)=\sum_{n=1}^{N}\sum_{g=1}^{G}\tau_g\prod_{m=1}^M\phi(x_{nm},\lambda_{gm}),
+$$ 
+where $\phi(x,\lambda)=\exp(-\lambda)\lambda^{x}/x!$, the Poisson probability mass function.
+
+Due to form of the mixture distribution, there are no closed form for the maximum
+likelihood estimators, and an iterative EM algorithm needs to be used
+[@Dempster_1977] to maximize the likelihood. The EM algorithm consists, starting from an initial
+value $\theta^{(0)}$ for the model parameter, and alternates the two
+following steps until convergence of the likelihood.
+
+At the $q$th iteration of the EM algorithm, the E-step consists of
+computing for all $1\leq n\leq N$ and $1\leq g\leq G$:
+$$t_{ng}^{(q)}=\frac{\tau_g^{(q)}\prod_{m=1}^M\phi(x_{nm},\lambda_{gm})}{\sum_{h=1}^{G}\tau_h^{(q)}\prod_{m=1}^M\phi(x_{nm},\lambda_{hm})}.$$
+In the M-step, the model parameters are updated as follows:
+$$ \tau_g^{(q+1)}=\frac{\sum_{n=1}^Nt_{ng}^{(q)}}{N}
+\quad {\rm ~and~} \quad
+\lambda_{gm}^{(q+1)}=\frac{\sum_{n=1}^Nt_{ng}^{(q)}x_{nm}}{\sum_{n=1}^Nt_{ng}^{(q)}}.
+$$
+The EM algorithm steps are iterated until convergence, where convergence is determined when $\log L(\theta^{(q+1)}) - \log L(\theta^{(q)}) < \epsilon$.
+
+The number of clusters $G$ is selected using the Bayesian information criterion (BIC)
+[@Schwarz_1978],
+$$
+BIC= 2 \log L(\hat\theta) - \{(G - 1) + GM\}\log(N),
+$$
+where $\hat\theta$ is the maximum likelihood estimate of the model parameters; models with higher BIC are prefered to models with lower BIC.
+
+# Variable selection
+
+We develop a model-based clustering method with variable selection for
+multivariate count data. The method follows the approach of [@RafteryDean2006;
+@MaugisEtAl2009] for continuous data and [@DeanRaftery2010; @Fop_2017]
+for categorical data. It consists in a stepwise model comparison
+approach where variables are added and removed from a set of clustering
+variables. 
+
+## Model setup
+
+The clustering and variable selection approach is based around partitioning
+${X}_n=(X_n^{C}, X_n^{P}, X_n^{O})$ into three parts:
+
+-   $X_n^{C}$: The current clustering variables,
+-   $X_n^{P}$: The proposed variable to add to the clustering variables,
+-   $X_n^{O}$: The other variables.
+
+For simplicity of notation, $C$ will be used to denote the set of indices of the current clustering variables, $P$ the indices of the proposed variable and $O$ the indices of the other one. Then $(C,P,O)$ is a partition of $\{1,\ldots,M\}$.
+
+The decision on whether to add the proposed variable to the clustering
+variables is based on comparing two models:
+
+${\cal M}_1$ (Clustering Model), which assumes that the proposed
+variable is useful for clustering: 
+$$
+(X_n^C, X_n^P) \sim \sum_{g=1}^{G} \tau_g \prod_{m\in\{C, P\}} {\rm Poisson}(\lambda_{gm}).
+$$
+
+${\cal M}_2$ (Non-Clustering Model) which assumes that the proposed
+variable is not useful for clustering, but is potentially linked to the clustering
+variables through a Poisson GLM, that is, 
+$$
+\begin{aligned}
+X_n^C &\sim \sum_{g=1}^{G}\tau_g \prod_{m\in C} {\rm Poisson}(\lambda_{gm})\\
+X_n^P| (X_n^C=x_n^C, Z_{ng}=1) & \sim  {\rm PoissonGLM}(x_n^{(C)}),
+\end{aligned}
+$$
+where Poisson GLM states that
+$$
+\log {\mathbb E}[X_n^P|X_n^C=x_n^C, Z_{ng}=1] = \alpha + \beta^\top x_n^C.
+$$
+
+In order to avoid to non significant terms in the Poisson GLM
+model, a standard stepwise variable selection approach (using BIC as the variable selection criterion) is considered.
+Thus, the proposed variable $X_n^P$ will be dependent on
+only a subset $X_n^R$ of the clustering variables $X_n^C$.
+
+The clustering and non-clustering models are represented as graphical
+models in @fig-graphical.
+
+![Graphical model representations of the clustering and non-clustering models.](fig-graphical-1.pdf){#fig-graphical}
+
+Thus, there is two reasons for which ${\cal M}_2$ can be preferred to
+${\cal M}_1$: either $X_n^P$ does not contain information about the
+latent clustering variable at all (ie. $X_n^R=\emptyset$), or $X_n^P$ does not add
+further useful information about the clustering given the information
+already contained in the current clustering variables. In the first situation, we say that $X_n^P$ is an irrelevant variable, because it contains no clustering information. In the second
+situation, we say that $X_n^P$ is a redundant variable because it contains no extra information about the clustering beyond the current clustering variables ($X_n^C$). 
+
+Additionally, both models assume the same form for the conditional
+distribution for $X_n^{O}|(X_{n}^{C}, X_{n}^{P})$ and whose form doesn't
+need to be explicitly specified because it doesn't affect the model
+choice.
+
+Variable $P$ is added to $C$ if the clustering model (${\cal M}_1$) is
+preferred to the non-clustering model (${\cal M}_2$). In order to
+compare ${\cal M}_1$ and ${\cal M}_2$, following [@DeanRaftery2010], we
+consider the Bayes Factor:
+$$B_{1,2}=\frac{p(X|{\cal M}_1)}{p(X|{\cal M}_2)}$$ which is
+asymptotically approximated [@Fop_2017; @Kass_1995] using the 
+difference of the BIC criteria for both models:
+$$2\log B_{1,2}\simeq BIC_{{\cal M}_1}-BIC_{{\cal M}_2}.$$
+
+The same modelling framework can be used for removing variables from the
+current set of clustering variables.
+
+## Interpretation {#sec-interpretation}
+
+Comparing ${\cal M}_1$ and ${\cal M}_2$ is equivalent to comparing the
+following $X_n^P|(X_n^C=x_n^C)$ structures.
+
+The ${\cal M}_1$ (Clustering Model) assumes that,
+$$
+X_n^P| (X_n^C=x_n^C) \sim \sum_{g=1}^{G} {\mathbb P}\{Z_{ng}=1|X_{n}^{C}=x_{n}^{C}\} {\rm Poisson}(\lambda_{gm}),
+$$
+where
+$$
+{\mathbb P}\{Z_{ng}=1|X_{n}^{C}=x_{n}^{C}\} = \frac{\tau_g \prod_{m=1}^{M}\phi(x_{nm}, \lambda_{gm})}{\sum_{h=1}^{G}\tau_h \prod_{m=1}^{M}\phi(x_{nm}, \lambda_{hm})}.
+$$
+
+Whereas, the ${\cal M}_2$ (Non-Clustering Model) assumes that,
+$$
+X_n^P| (X_n^C=x_n^C) =  {\rm PoissonGLM}(x_n^C).
+$$
+
+The method contrasts which of conditional model structures is better
+describing the distribution of the proposed variable $X^P$. The
+clustering model (${\cal M}_1$) uses a mixture model, with covariate
+dependent weights, for the conditional model whereas the non-clustering
+model (${\cal M}_2$) is a Poisson generalized linear model. The model
+selection criterion chooses the model that best models this conditional
+distribution.
+
+## Stepwise selection algorithm
+
+### Screening variables: Initialization
+
+We start with an initial choice of $C$ by first screening each
+individual variable by fitting a mixture of univariate Poisson distributions [eg. @EverittHand1981, Chapter 4.3],
+$$
+X_{nm} \sim \sum_{g=1}^{G}\tau_g {\rm Poisson}(\lambda_{gm}), {\rm ~for~} G=1,2,\ldots, G_{max}.
+$$
+The initial set of variables is set to be those variables where the any
+model with $G>1$ is preferred to the $G=1$ model.
+
+### Stepwise algorithm: Updating
+
+We consider a stepwise algorithm which alternates between
+adding and removing steps. In the removal step, all the variables in
+$X^C$ are examined in turn to be removed from the set. In the adding
+step, all the variables in $X^O$ are examined in turn to be added to the
+clustering set.
+
+The algorithm also performs the selection of the number $G$ of clusters
+finding at each stage the optimal combination of clustering variables
+and number of clusters. The procedure stops when no change has been made
+to the set $X^C$ after consecutive exclusion and inclusion steps.
+
+With the present stepwise selection algorithm, it can occur that
+during the process, we get back on a solution (a set of clustering
+variable) already explored. Since our algorithm is not stochastic, we
+fall into an infinite cycle. In this situation the algorithm is stopped,
+and the best solution according to BIC among the solution of the cycle
+is kept.
+
+# Simulation study
+
+In this section, we evaluate the proposed variable selection method
+through three different simulation scenarios. We start with an
+illustrative example in which, using a data set simulated according to
+the proposed model, we show how to perform the variable selection. 
+
+Then, simulation studies are performed to evaluate the behaviour of the
+proposed selection method, when the data are simulated according to the
+proposed model (@sec-Scenario1-wholeresults) and when the model
+assumptions are violated. In @sec-Scenario2-wholeresults, the link
+between $X^R$ and $X^C$ is no longer a Poisson GLM but a linear model. In
+@sec-Scenario3-wholeresults, the clustering variables are no longer
+conditionally independent.
+
+## Illustrative example
+
+```{r simulation1}
+# Generate data
+set.seed(69007)
+N <- 400
+G <- 3
+P <- 10
+tau0 <- c(0.4, 0.3, 0.3)
+lambda0 <- matrix(c(1, 1, 1, 1, 2, 2, 1, 4, 4, 4, 4, 4), G, 4, byrow = TRUE)
+l0 <- sample (1:G, prob = tau0, replace = TRUE, size = N)
+Ng <- table(l0)
+Z0 <- unmap(l0)
+
+x <- matrix(NA, N, P)
+for (g in 1:G)
+{
+  x[l0==g, 1:4] <- matrix(rpois(4 * Ng[g], lambda0[g, ]), Ng[g], 4, byrow = TRUE)
+}
+#x[, 1:4] <- x[, 1:4] + rpois(N, 1) 
+x[ ,5] <- rpois(N, exp(0.2 * x[, 2]))
+x[ ,6] <- rpois(N, exp(x[, 1] * 0.2 - 0.1 * x[, 2]))
+x[ ,7] <- rpois(N, exp(0.1 * (x[, 1] + x[, 3] + x[, 4])))
+x[ ,8] <- rpois(N, 4)
+x[ ,9] <- rpois(N, 2)
+x[ ,10] <- rpois(N, 1)
+```
+
+In the first simulation setting we consider 10 Poisson random variables.
+Variables $X_1$, $X_2$, $X_3$ and $X_4$ are the clustering variables,
+distributed according to a mixture of $G=$ `r G` independent Poisson
+mixture distributions with mixing proportions `r tau0`. Variables $X_5$,
+$X_6$ and $X_7$ are redundant variables, each one generated dependent on
+the clustering variables. These three variables are linked to the four
+first ones through a Poisson GLM. The last three variables, $X_8$, $X_9$
+and $X_{10}$ are irrelevant variables not related to the previous ones.
+
+Below is the result obtained for one data set of size $N=$ `r N`. The
+evaluation criteria is the selected features (true one are $X_1$ to
+$X_4$) and the Adjusted Rand Index [@Rand_1971; @HubertArabie1985]
+obtained with the selected variables in comparison to those obtained
+with the full set of variables and with the true clustering variables.
+
+```{r fullpoisson, cache = TRUE}
+Gmax <- 10
+fit_all <- poissonmix_all(x, G = 1:Gmax)
+```
+
+The independent Poisson mixture model was fitted to the simulated data
+with $N=$ `r N` rows and $P=$ `r P` columns. Models with $G=1$ to $G=$
+`r Gmax` were fitted using the EM algorithm.
+
+The values of BIC for the independent Poisson mixture model are plotted
+in @fig-BIC.
+
+```{r plotBIC}
+#| label: fig-BIC
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: "center"
+#| fig-cap: "Bayesian Information Criterion (BIC) for the independent Poisson mixture model."
+plot(x = 1:Gmax, y = fit_all$BIC, type = "o", xlab = "G", ylab = "BIC")
+```
+
+The model with the highest BIC has $G=$ `r fit_all$bestfit$G` components
+and the resulting estimates of $\tau$ and $\lambda$ are given as:
+
+```{r fullpoissonparam}
+#| label: tbl-params
+#| message: false
+#| out-width: "70%"
+#| tbl-cap: "Estimates of the mixing proportions and component parameters."
+tauhat <- fit_all$bestfit$tau
+lambdahat <- fit_all$bestfit$lambda
+Ghat <- fit_all$bestfit$G
+res <- data.frame(tauhat,lambdahat)
+colnames(res) <- c("$\\tau_g$", paste("$\\lambda_{g", 1:P, "}$", sep =""))
+rownames(res) <- paste("$g=", 1:Ghat, "$", sep="")
+knitr::kable(res, digits = 2)
+```
+
+Let start by initializing the stepwise algorithm.
+
+```{r screening, cache = TRUE, echo = TRUE}
+fit_screen <- poissonmix_screen(x, G = 1:Gmax)
+jchosen <- fit_screen$jchosen
+```
+
+The variables selected by the screening procedure are
+{`r fit_screen$jchosen`}.
+
+Now, we execute the stepwise selection algorithm:
+
+```{r varsel, cache = TRUE, echo = TRUE}
+fit <- poissonmix_varsel(x, jchosen=jchosen, G = 1:Gmax)
+```
+
+The final chosen variables are {`r fit$jchosen`}.
+
+```{r comparison, cache = TRUE, echo = FALSE}
+fit_sel <- poissonmix_all(x[,fit$jchosen], G = Ghat)
+fit_true <- poissonmix_all(x[,1:4], G = Ghat)
+```
+
+Finally, the ARI obtained with the selected variables, which turn out to
+be the true clustering variable, is
+`r round(adjustedRandIndex(l0, fit_sel$bestfit$classification), 3)`
+whereas it is
+`r round(adjustedRandIndex(l0, fit_all$bestfit$classification), 3)` with
+all the variables.
+
+## Scenario 1 {#sec-Scenario1-wholeresults}
+
+```{r simulationsize, cache = TRUE, echo = FALSE}
+D <- 4
+```
+
+```{r simulation1whole, cache = TRUE, echo = FALSE, eval=FALSE}
+selected_variables <- matrix(0, D, P)
+ARI <- matrix(NA, D, 3)
+colnames(ARI) <- c("Selected variables", "All variables", "True variables")
+# register previous results
+selected_variables[1, fit$jchosen] <- 1
+ARI[1, 1] <- adjustedRandIndex(l0, fit_sel$bestfit$classification)
+ARI[1, 2] <- adjustedRandIndex(l0, fit_all$bestfit$classification)
+ARI[1, 3] <- adjustedRandIndex(l0, fit_true$bestfit$classification)
+# loop on the data sets
+for (d in 2:D){
+# Generate data
+l0 <- sample (1:G, prob=tau0, replace = TRUE, size = N)
+Ng <- table(l0)
+Z0 <- unmap(l0)
+x <- matrix(NA, N, P)
+for (g in 1:G)
+{
+  x[l0==g, 1:4] <- matrix(rpois(4 * Ng[g], lambda0[g, ]), Ng[g], 4, byrow = TRUE)
+}
+x[ ,5] <- rpois(N, exp(0.2 * x[, 2]))
+x[ ,6] <- rpois(N, exp(x[, 1] * 0.2 - 0.1 * x[, 2]))
+x[ ,7] <- rpois(N, exp(0.1 * (x[, 1] + x[, 3] + x[, 4])))
+x[ ,8] <- rpois(N, 4)
+x[ ,9] <- rpois(N, 2)
+x[ ,10] <- rpois(N, 1)
+# Select G
+fit_all <- poissonmix_all(x, G = 1:Gmax)
+Ghat <- fit_all$bestfit$G
+# Select initial variable
+fit_screen <- poissonmix_screen(x, G = 1:Gmax)
+jchosen <- fit_screen$jchosen
+# Variable selection
+fit <- poissonmix_varsel(x, jchosen=jchosen, G = 1:Gmax)
+selected_variables[d,fit$jchosen] <- 1
+# Computing partitions and ARI
+fit_sel <- poissonmix_all(x[,fit$jchosen], G = Ghat)
+fit_true <- poissonmix_all(x[,1:4], G = Ghat)
+ARI[d, 1] <- adjustedRandIndex(l0, fit_sel$bestfit$classification)
+ARI[d, 2] <- adjustedRandIndex(l0, fit_all$bestfit$classification)
+ARI[d, 3] <- adjustedRandIndex(l0, fit_true$bestfit$classification)
+}
+```
+
+The section give the results for `r D` simulated data sets for simulation setting number 1, which is similar to the previous illustrative example.
+
+```{r loadsim1, echo = FALSE, message = FALSE}
+load('result-simulation1.Rdata')
+```
+
+@tbl-HIST1 shows the number of times, among the `r D` simulated
+data sets, that each variable is selected. The model selection procedure
+perform perfectly, selecting each time only the true clustering
+variables. @fig-ARI1 shows the ARI obtained on `r D` simulations
+with the selected variables, with all the variables and with the true
+clustering variables.
+
+```{r tabHIST1}
+#| label: tbl-HIST1
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| tbl-cap: "Number of selection for each variable, simulation setting number 1."
+res <- matrix(colSums(selected_variables), 1, P)
+colnames(res) <- paste("$X_{", 1:P, "}$", sep = "")
+rownames(res) <- "Number of selections"
+knitr::kable(res)
+```
+
+```{r plotARI1}
+#| label: fig-ARI1
+#| echo: false
+#| message: false
+#| fig-align: center
+#| fig-cap: "Adjusted Rand Index in function of the variables used for clustering, simulation setting number 1."
+boxplot(ARI)
+```
+
+Since in this simulation setting, the selected variables are always the
+true clustering variables (@tbl-HIST1), the first and third
+boxplot are similar. In addition, as expected the ARI is better with the
+selected variables than when using all the variables.
+
+Since the variability of ARI among the simulations could hide the
+difference observed for each simulation, @fig-HIST1 plots the
+histogram of the difference of ARI with the selected variables and with
+all the variables. We can see that the difference is almost always
+positive.
+
+```{r plotHIST1}
+#| label: fig-HIST1
+#| echo: false
+#| message: false
+#| fig-align: center
+#| fig-cap: "Distribution of the ARI differences for the model with the selected variables and the model with all  variables, simulation setting number 1."
+hist(ARI[, 1] - ARI[, 2], xlab= '', main = 'ARI differences')
+```
+
+## Scenario 2 {#sec-Scenario2-wholeresults}
+
+The second scenario is similar to the first one, except for variables
+$X_5$ and $X_6$ which are still redundant but linked to the true
+clustering variables through a linear and quadratic term in an identity link function, respectively, and not a Poisson GLM with logarithm link function. Thus, the data are simulated from a model which
+does not satisfy assumptions of model ${\cal M}_2^*$.
+
+```{r simulation2whole, cache = TRUE, echo = FALSE, eval = FALSE}
+selected_variables <- matrix(0, D, P)
+ARI <- matrix(NA, D, 3)
+colnames(ARI) <- c("Selected variables", "All variables", "True variables")
+# loop on the data sets
+for (d in 1:D){
+# Generate data
+l0 <- sample (1:G, prob=tau0, replace = TRUE, size = N)
+Ng <- table(l0)
+Z0 <- unmap(l0)
+x <- matrix(NA, N, P)
+for (g in 1:G)
+{
+  x[l0==g, 1:4] <- matrix(rpois(4 * Ng[g], lambda0[g, ]), Ng[g], 4, byrow = TRUE)
+}
+x[ ,5] <- rpois(N, 2 * x[, 2])
+x[ ,6] <- rpois(N, x[, 1] ^ 2 + x[, 3])
+x[ ,7] <- rpois(N, exp(0.1 * (x[, 1] + x[, 3] + x[, 4])))
+x[ ,8] <- rpois(N, 4)
+x[ ,9] <- rpois(N, 2)
+x[ ,10] <- rpois(N, 1)
+# Select G
+fit_all <- poissonmix_all(x, G = 1:Gmax)
+Ghat <- fit_all$bestfit$G
+# Select initial variable
+fit_screen <- poissonmix_screen(x, G = 1:Gmax) 
+jchosen <- fit_screen$jchosen
+# Variable selection
+fit <- poissonmix_varsel(x, jchosen=jchosen, G = 1:Gmax)
+selected_variables[d,fit$jchosen]=1
+# Computing partitions and ARI
+fit_sel <- poissonmix_all(x[,fit$jchosen], G = Ghat)
+fit_true <- poissonmix_all(x[,1:4], G = Ghat)
+ARI[d, 1] <- adjustedRandIndex(l0, fit_sel$bestfit$classification)
+ARI[d, 2] <- adjustedRandIndex(l0, fit_all$bestfit$classification)
+ARI[d, 3] <- adjustedRandIndex(l0, fit_true$bestfit$classification)
+}
+```
+
+```{r loadsim2, echo = FALSE, message = FALSE}
+load('result-simulation2.Rdata')
+```
+
+Due to the fact the link between the redundant and the true clustering
+variables is not a standard Poisson GLM, the variable selection is perturbed and
+variables $X_5$ is sometimes selected (@tbl-HIST2). But the ARI
+results (@fig-ARI2 and @fig-HIST2) are still better with the selected variables
+than with all the variables.
+
+```{r tabHIST2}
+#| label: tbl-HIST2
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| tbl-cap: "Number of selection for each variable, simulation setting number 2."
+res <- matrix(colSums(selected_variables),1,P)
+colnames(res) <- paste("$X_{", 1:P, "}$", sep ="")
+rownames(res) <- "Number of selections"
+knitr::kable(res)
+```
+
+```{r plotARI2}
+#| label: fig-ARI2
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| fig-cap: "Adjusted Rand Index in function of the variables used for clustering, simulation setting number 2."
+boxplot(ARI)
+```
+
+```{r plotHIST2}
+#| label: fig-HIST2
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| fig-cap: "Distribution of the ARI differences for the model with the selected variables and the model with all  variables, simulation setting number S."
+hist(ARI[, 1] - ARI[, 2], xlab = '', main = 'ARI differences')
+```
+
+## Scenario 3 {#sec-Scenario3-wholeresults}
+
+The third scenario is similar to the second one, but some dependence
+between the clustering variables $X_1$ and $X_2$ is introduced, in order
+to create some redundancy among the true clsutering variables.
+
+```{r simulation3whole, cache = TRUE, echo = FALSE,eval = FALSE}
+selected_variables <- matrix(0,D,P)
+ARI <- matrix(NA,D,3)
+colnames(ARI) <- c("Selected variables", "All variables", "True variables")
+# loop on the data sets
+for (d in 1:D){
+# Generate data
+l0 <- sample (1:G, prob=tau0, replace = TRUE, size = N)
+Ng <- table(l0)
+Z0 <- unmap(l0)
+x <- matrix(NA, N, P)
+for (g in 1:G)
+{
+  x[l0==g, 1:4] <- matrix(rpois(4 * Ng[g], lambda0[g, ]), Ng[g], 4, byrow = TRUE)
+}
+x[, 1:2] <- x[, 1:2] + rpois(N, 2)
+x[ ,5] <- rpois(N, 2 * x[, 2])
+x[ ,6] <- rpois(N, x[, 1]^2 + x[, 3])
+x[ ,7] <- rpois(N, exp(0.1 * (x[, 1] + x[, 3] + x[, 4])))
+x[ ,8] <- rpois(N, 4)
+x[ ,9] <- rpois(N, 2)
+x[ ,10] <- rpois(N, 1)
+# Select G
+fit_all <- poissonmix_all(x, G = 1:Gmax)
+Ghat <- fit_all$bestfit$G
+# Select initial variable
+fit_screen <- poissonmix_screen(x, G = 1:Gmax) # JJ: why to not use Ghat ??
+jchosen <- fit_screen$jchosen
+# Variable selection
+fit <- poissonmix_varsel(x, jchosen=jchosen, G = 1:Gmax)
+selected_variables[d,fit$jchosen]=1
+# Computing partitions and ARI
+fit_sel <- poissonmix_all(x[,fit$jchosen], G = Ghat)
+fit_true <- poissonmix_all(x[,1:4], G = Ghat)
+ARI[d,1] <- adjustedRandIndex(l0, fit_sel$bestfit$classification)
+ARI[d,2] <- adjustedRandIndex(l0, fit_all$bestfit$classification)
+ARI[d,3] <- adjustedRandIndex(l0, fit_true$bestfit$classification)
+}
+```
+
+```{r loadsim3, echo = FALSE, message = FALSE}
+load('result-simulation3.Rdata')
+```
+
+The results is that the dependency between $X_1$ and $X_2$ perturb the
+variable selection, and only one of them is selected (and even sometimes
+none of them). Redundant variables $X_5$ and $X_6$, which are linked to
+the clustering variables but with a linear link, are also sometimes
+selected (@tbl-HIST3). But from an ARI point of view, the selected variables lead to a better ARI than using all the variables (@fig-ARI3, @fig-HIST3).
+
+```{r tabHIST3}
+#| label: tbl-HIST3
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| tbl-cap: "Number of selection for each variable, simulation setting number 3."
+res <- matrix(colSums(selected_variables),1,P)
+colnames(res) <- paste("$X_{", 1:P, "}$", sep ="")
+rownames(res) <- "Number of selections"
+knitr::kable(res)
+```
+
+```{r plotARI3}
+#| label: fig-ARI3
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| fig-cap: "Adjusted Rand Index in function of the variables used for clustering, simulation setting number 3."
+boxplot(ARI)
+```
+
+```{r plotHIST3}
+#| label: fig-HIST3
+#| echo: false
+#| message: false
+#| fig-align: "center"
+#| fig-cap: "Distribution of the ARI differences for the model with the selected variables and the model with all  variables, simulation setting number 3."
+hist(ARI[, 1] - ARI[, 2], xlab = '',main = 'ARI differences')
+```
+
+# International Ultrarunning Association Data
+
+```{r loadrunning, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center'}
+load("X24H.Rdata")
+P <- ncol(x)
+Gmax <- 10
+```
+
+We apply the proposed procedure to the data from the 2012 International Ultrarunning Association World 24H Championships. 
+
+We start by initializing the stepwise algorithm, and find the
+variables selected by the screening procedure:
+
+```{r screenrunning, cache = TRUE, echo = TRUE}
+fit_screen <- poissonmix_screen(x, G = 1:Gmax)
+jchosen <- fit_screen$jchosen
+jchosen
+```
+
+We then execute the proposed stepwise selection algorithm:
+
+```{r fitrunning, cache = TRUE, echo = TRUE, eval = FALSE}
+fit <- poissonmix_varsel(x, jchosen = jchosen, G = 1:Gmax)
+```
+
+```{r loadfitrunning, echo = FALSE}
+load("RunningFit.Rdata")
+```
+
+The final chosen variables found by the algorithm are:
+
+```{r runningchosen, echo = FALSE}
+fit$jchosen
+```
+
+In order to illustrate the results, we plot the cluster means according
+to the `r P` variable mean parameters per cluster. For each variable not
+in the chosen variable set, a Poisson regression model is fitted with
+the chosen variables as predictors. Forward and backwards variable
+selection is conducted on this regression, if the regression model has any
+predictor variables, then the variable is called "redundant" and if the
+regression model has no predictor variables, then the variable is called
+"irrelevant".
+
+@fig-Running-result1 shows the cluster mean for each variable, where the
+label indicates if the variable is irrelevant for clustering ("I"),
+redundant ("R") or useful (the label is then the cluster number).
+
+```{r plotrunning, echo=FALSE, fig.align='center', cache = TRUE}
+#| label: fig-Running-result1
+#| fig-cap: "Cluster means and usefulness of the variables."
+matplot(fit$jchosen, t(fit$bestfit$lambda), xlab = 'Hours', ylab = "Number of laps", xaxt = "n",yaxt = "n", xlim = c(1, P), ylim = range(x[,-16]))
+axis(1, at = seq(6, 24, 6),labels = seq(6, 24, 6))
+axis(2, at = 0:9, labels = 0:9)
+abline(v = fit$jchosen, col = "lightgray", lty = 3)
+matplot(fit$jchosen, t(fit$bestfit$lambda), type = "p", add = TRUE)
+
+G <- fit$bestfit$G
+Z <- fit$bestfit$Z
+x <- as.matrix(x)
+xmeans <- t(Z) %*% x / apply(Z, 2, sum)
+jremove <- setdiff(1:P, fit$jchosen)
+
+vartype <- rep(NA, P)
+vartype[fit$jchosen] <- "Clustering"
+for (j in jremove)
+{
+  y <- x[, j]
+  Xregr <- x[, fit$jchosen]
+  datregr <- data.frame(y, Xregr)
+  fitglm <- glm(y ~ ., family = "poisson", data = datregr)
+  fit1 <- glm(y ~ 1, family = "poisson", data = datregr)
+  modelscope <- list(lower = formula(fit1), upper = formula(fitglm))
+  fitglmb <- step(fit1, scope = modelscope, k = log(N), trace = 0, direction = "forward")
+  fitglmf <- step(fitglm, scope = modelscope, k = log(N), trace = 0, direction = "backward")
+  if (BIC(fitglmf) < BIC(fitglmb)) {fitglms <- fitglmf} else {fitglms <- fitglmb}
+  if (length(coef(fitglms)) > 1)
+  {
+    vartype[j] <- "Redundant"
+    text(rep(j, G), xmeans[, j], rep("R", G), col = 1:G)
+  } else {
+    vartype[j] <- "Irrelevant"
+    text(rep(j, G), xmeans[, j], rep("I", G), col = 1:G)
+    
+  }
+}
+matplot(1:P, t(xmeans), col = 1:G, type = "c", lty = 1, add = TRUE)
+```
+
+The variables discriminate the clusters pacing strategies of
+the runners are the number of laps covered during the last two thirds of
+the race (except during the 13th and 23rd hours). The number of laps
+covered during the first eight hours does not provide any additional
+clustering information, and even no information at all for the number of laps
+covered during the first hour.
+
+@fig-Running-result2 shows boxplots of the total number of loops covered by the runners in each of the
+clusters.
+
+```{r ARIrunning, echo = FALSE, message = FALSE, warning=FALSE, fig.align='center'}
+#| label: fig-Running-result2
+#| fig-cap: "Number of loops covered by the runners of each clusters."
+tmp <- sort(as.vector(rowSums(x)), decreasing = TRUE, index.return = TRUE)
+boxplot(rowSums(x) ~ map(Z), xlab = 'Cluster', ylab = 'Total number of laps')
+```
+
+Cluster 5  are clearly the most efficient runners. Looking at the running
+strategy in @fig-Running-result1, we can see that they start as runners
+of Cluster 1 and Cluster 2, but they managed to keep a constant pace on
+the second part of the race, unlike those of the other two clusters
+which faltered. Runners of Cluster 3 has covered the fewest number of
+laps. Indeed, looking at their running strategy, we can see that most of these runners stop after the first third of
+the race. Cluster 6 is relatively similar to Cluster 3, but runners
+manage to continue running until half of the race is completed. Finally, Cluster 4 obtains
+slightly better results than Cluster 6, starting more carefully, and
+managing to run until the end of the race, even if the pace of the last
+hours is not very constant.
+
+# Discussion
+
+A method for clustering and variable selection for multivariate count data has been proposed. The method is shown to give excellent performance on both simulated and real data examples. The method selects set of relevant variables for clustering and other variables are not selected if they are irrelevant or redundate for clustering purposes. 
+
+The proposed method is shown to give interesting insights in the application domain, where some clusters members are shown to perform better overall to others and the benefits of constant (or near constant pacing) are shown. 
+
+The level of variable selection is determined by the relative performance of the two models (as shown in @sec-interpretation) is compared. Alternative models to the Poisson GLM model which have greater flexibility could lead to a smaller set of selected variables than the proposed method achieves. This is a topic for future research. 
+
+The proposed method could be extended to other count data distributions, including multivariate distributions without the conditional independence assumption [eg. @Karlis2018; @Karlis_2007; @Inouye_2017].
+
+The code for the proposed approach will be made available as an R package. 
+
+
+# Acknowlegements
+
+This work was supported by the Science Foundation Ireland Insight
+Research Centre (SFI/12/RC/2289_P2) and a visit to the Collegium --
+Institut d'Études Avancées de Lyon.
+
