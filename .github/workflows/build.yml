@@ -29,6 +29,10 @@ jobs:
           ~/.TinyTeX/bin/x86_64-linux/tlmgr option sys_bin ~/.local/bin
           ~/.TinyTeX/bin/x86_64-linux/tlmgr path add
           ~/.TinyTeX/bin/x86_64-linux/tlmgr install libertinus-fonts
+      
+      - name: Install additional system requirements
+        run: |
+          apt-get -y install libmagick++-6.q16-dev
   
       - name: Install Computo extension for Quarto
         run: |
