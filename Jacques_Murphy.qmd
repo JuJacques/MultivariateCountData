@@ -3,11 +3,12 @@ knitr::opts_chunk$set(tidy = FALSE, fig.width = 5, fig.height = 5, echo = FALSE)
 options(htmltools.dir.version = FALSE)
 ```
 
----
+<!-- ---
 #<button type="button" class="btn" title="Print to PDF" onClick="window.print()">Export to PDF</button>
 ---
+ -->
 
-```{r packages, message = FALSE, warning=FALSE, eval=FALSE}
+<!-- ```{r packages, message = FALSE, warning=FALSE, eval=FALSE}
 renv::init()
 renv::install("mclust")
 renv::install("rio")
@@ -16,7 +17,7 @@ renv::install("plotly")
 renv::install("seriation")
 renv::install("magick")
 renv::snapshot()
-```
+``` -->
 
 ```{r packages2, message = FALSE, warning=FALSE, eval=TRUE}
 library("mclust")
@@ -30,7 +31,6 @@ library("magick")
 ```{r functions, message = FALSE}
 source("./functions/poissonmix.R")
 ```
-
 
 # Introduction
 
