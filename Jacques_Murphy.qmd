@@ -330,7 +330,7 @@ obtained with the selected variables in comparison to those obtained
 with the full set of variables and with the true clustering variables.
 
 ```{r fullpoisson, cache = TRUE}
-Gmax <- 10
+Gmax <- 2
 fit_all <- poissonmix_all(x, G = 1:Gmax)
 ```
 
