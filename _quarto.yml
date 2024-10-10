@@ -1,0 +1,36 @@
+project:
+  type: website
+  render:
+    - Jacques_Murphy.qmd
+
+title: "Model-Based Clustering and Variable Selection for Multivariate Count Data"
+author:
+- name: Julien Jacques
+  corresponding: true
+  email: julien.jacques@univ-lyon2.fr
+  affiliations: 
+  - name: Laboratoire ERIC, Université de Lyon
+- name: Thomas Brendan Murphy
+  email: brendan.murphy@ucd.ie
+  affiliations: 
+  - name: School of Mathematics \& Statistics, University College Dublin
+  - name: Institut d'Études Avancées, Université de Lyon
+date: last-modified
+date-modified: last-modified
+abstract: >+
+  Model-based clustering provides a principled way of developing clustering methods. We develop a new model-based clustering methods for count data. The method combines clustering and variable selection for improved clustering. The method is based on conditionally independent Poisson mixture models and Poisson generalized linear models. The method is demonstrated on simulated data and data from an ultra running race, where the method yields excellent clustering and variable selection performance.
+keywords: [Count data, Model-based clustering, Variable selection]
+citation:
+  type: article-journal
+  container-title: "Computo"
+  doi: "xxxx"
+  url: https://computo.sfds.asso.fr/template-computo-quarto
+  publisher: "Société Française de Statistique"
+  issn: "2824-7795"
+bibliography: references.bib
+draft: true
+published: false
+format:
+  computo-html: default
+  computo-pdf: default
+fontfamily: merriweather
