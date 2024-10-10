@@ -1,6 +1,6 @@
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(tidy = FALSE, fig.width = 5, fig.height = 5, echo = FALSE)
-options(htmltools.dir.version = FALSE)
+# options(htmltools.dir.version = FALSE)
 ```
 
 <!-- ---
