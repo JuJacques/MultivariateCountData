@@ -2,10 +2,8 @@ name: Main Workflows
 
 on:
   push:
-    branches: ["main"]
-  repository_dispatch:
-    types: [custom-event] 
-  workflow_dispatch:
+    branches:
+      - main
 
 permissions:
   contents: write
