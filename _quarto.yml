@@ -1,5 +1,4 @@
 project:
-  type: website
   render:
     - Jacques_Murphy.qmd
 
