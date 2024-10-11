@@ -1,0 +1,8 @@
+renv::init()
+renv::install("mclust")
+renv::install("rio")
+renv::install("e1071")
+renv::install("plotly")
+renv::install("seriation")
+renv::install("magick")
+renv::snapshot()

@@ -1,0 +1,1 @@
+. setup-env-ci.sh
