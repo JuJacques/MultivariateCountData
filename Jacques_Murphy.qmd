@@ -15,6 +15,7 @@ library("magick")
 source("./functions/poissonmix.R")
 ```
 
+
 # Introduction
 
 Multivariate count data is ubiquitous in statistical applications, as ecology [@Chiquet2021], genomic [@Rau2015; @Silva2019]. These data arise when each observation consists of a vector of count values.
