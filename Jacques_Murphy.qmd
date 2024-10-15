@@ -186,7 +186,41 @@ only a subset $X_n^R$ of the clustering variables $X_n^C$.
 The clustering and non-clustering models are represented as graphical
 models in @fig-graphical.
 
-![Graphical model representations of the clustering and non-clustering models.](fig-graphical-1.pdf){#fig-graphical}
+<!-- ![Graphical model representations of the clustering and non-clustering models.](fig-graphical-1.pdf){#fig-graphical} -->
+
+```{tikz graphicalmodel, dev = "svg", fig.width = 5}
+#| layout-ncol: 1
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: "center"
+#| label: fig-graphical
+#| fig-cap: "Graphical model representations of the clustering and non-clustering models."
+
+\begin{tikzpicture}
+ \node[draw, circle] at (0, 0) (z) {$Z$};
+  \node[draw] at (-2, -2) (xc) {$X^C$};
+ \node[draw] at (2, -2) (xp) {$X^P$};
+ \node[draw] at (0, -4) (xo) {$X^O$};
+ \draw[->] (z) -- (xp);
+ \draw[->] (z) -- (xc);
+\draw[->] (xc) -- (xo);
+\draw[->] (xp) -- (xo);
+\node[draw, rectangle] at (0, 0.75) {Clustering};
+
+ \node[draw, circle] at (7, 0) (z) {$Z$};
+  \node[draw] at (5, -2) (xc) {$X^C$};
+ \node[draw] at (9, -2) (xp) {$X^P$};
+ \node[draw] at (7, -4) (xo) {$X^O$};
+ \draw[->] (z) -- (xc);
+ \draw[dashed,->] (xc) -- (xp);
+ \node[fill=white] at (7, -1.7) {$X^R\subseteq X^C$};
+\draw[->] (xc) -- (xo);
+\draw[->] (xp) -- (xo);
+\node[draw, rectangle] at (7, 0.75) {Non Clustering};
+
+\end{tikzpicture}
+```
 
 Thus, there is two reasons for which ${\cal M}_2$ can be preferred to
 ${\cal M}_1$: either $X_n^P$ does not contain information about the
@@ -330,7 +364,7 @@ obtained with the selected variables in comparison to those obtained
 with the full set of variables and with the true clustering variables.
 
 ```{r fullpoisson, cache = TRUE}
-Gmax <- 10
+Gmax <- 2
 fit_all <- poissonmix_all(x, G = 1:Gmax)
 ```
 
