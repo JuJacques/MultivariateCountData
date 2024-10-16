@@ -179,17 +179,10 @@ only a subset $X_n^R$ of the clustering variables $X_n^C$.
 The clustering and non-clustering models are represented as graphical
 models in @fig-graphical.
 
-<!-- ![Graphical model representations of the clustering and non-clustering models.](fig-graphical-1.pdf){#fig-graphical} -->
+:::{#fig-graphical layout="[[-10,80,10]]" }
 
-```{tikz graphicalmodel, dev = "svg", fig.width = 5}
-#| layout-ncol: 1
-#| echo: false
-#| message: false
-#| warning: false
-#| fig-align: "center"
-#| label: fig-graphical
-#| fig-cap: "Graphical model representations of the clustering and non-clustering models."
-
+```{.tikz}
+%%| filename: ../figures/fig-graphical
 \begin{tikzpicture}
  \node[draw, circle] at (0, 0) (z) {$Z$};
   \node[draw] at (-2, -2) (xc) {$X^C$};
@@ -214,6 +207,10 @@ models in @fig-graphical.
 
 \end{tikzpicture}
 ```
+
+Graphical model representations of the clustering and non-clustering models.
+
+:::
 
 Thus, there is two reasons for which ${\cal M}_2$ can be preferred to
 ${\cal M}_1$: either $X_n^P$ does not contain information about the
