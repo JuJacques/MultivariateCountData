@@ -1,2 +1,2 @@
 . setup-env-ci.sh
-sudo apt-get install -y inkscape libicu-dev
+sudo apt-get install -y inkscape
