@@ -1,6 +1,7 @@
 project:
   render:
-    - published-202507-jacques-count-data.qmd
+    - main.qmd
+    - README.qmd
 
 title: "Model-Based Clustering and Variable Selection for Multivariate Count Data"
 author:
@@ -29,8 +30,7 @@ bibliography: references.bib
 google-scholar: true
 github-user: computorg
 repo: "published-202507-jacques-count-data"
-draft: false
-published: true
+status: published
 format:
   computo-html: default
   computo-pdf: default
