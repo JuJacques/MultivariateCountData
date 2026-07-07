@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: If you use or cite this article, please use the metadata provided in 'preferred-citation'.
+title: Model-Based Clustering and Variable Selection for Multivariate Count Data
+authors:
+- family-names: Jacques
+  given-names: Julien
+  orcid: https://orcid.org/0000-0003-4808-2781
+  affiliation: Université Lumière Lyon 2, Universite Claude Bernard Lyon 1, ERIC,
+    69007, Lyon, France
+- family-names: Murphy
+  given-names: Thomas Brendan
+  orcid: https://orcid.org/0000-0002-5668-7046
+  affiliation: School of Mathematics \& Statistics, University College Dublin; Institut
+    d'Études Avancées, Université de Lyon
+url: https://computo-journal.org/published-202507-jacques-count-data/
+preferred-citation:
+  type: article
+  title: Model-Based Clustering and Variable Selection for Multivariate Count Data
+  authors:
+  - family-names: Jacques
+    given-names: Julien
+    orcid: https://orcid.org/0000-0003-4808-2781
+    affiliation: Université Lumière Lyon 2, Universite Claude Bernard Lyon 1, ERIC,
+      69007, Lyon, France
+  - family-names: Murphy
+    given-names: Thomas Brendan
+    orcid: https://orcid.org/0000-0002-5668-7046
+    affiliation: School of Mathematics \& Statistics, University College Dublin; Institut
+      d'Études Avancées, Université de Lyon
+  journal: Computo
+  issn: 2824-7795
+  url: https://computo-journal.org/published-202507-jacques-count-data/
+  publisher:
+    name: French Statistical Society
+  doi: 10.57750/6v7b-8483
+  year: 2025
+doi: 10.57750/6v7b-8483
+date-released: '2025-07-01'
