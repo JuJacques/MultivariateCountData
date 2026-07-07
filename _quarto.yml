@@ -17,7 +17,7 @@ author:
   affiliations:
   - name: School of Mathematics \& Statistics, University College Dublin
   - name: Institut d'Études Avancées, Université de Lyon
-date: 07-01-2025
+date: 2025-07-01
 date-modified: last-modified
 abstract: >+
   Model-based clustering provides a principled way of developing clustering methods. We develop a new model-based clustering methods for count data. The method combines clustering and variable selection for improved clustering. The method is based on conditionally independent Poisson mixture models and Poisson generalized linear models. The method is demonstrated on simulated data and data from an ultra running race, where the method yields excellent clustering and variable selection performance.
@@ -29,6 +29,7 @@ citation:
   publisher: "French Statistical Society"
   issn: "2824-7795"
   url: "https://computo-journal.org/published-202507-jacques-count-data/"
+  issued: "2025-07-01"
 bibliography: references.bib
 google-scholar: true
 github-user: computorg
