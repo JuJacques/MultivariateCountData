@@ -8,11 +8,13 @@ author:
 - name: Julien Jacques
   corresponding: true
   email: julien.jacques@univ-lyon2.fr
-  affiliations: 
+  orcid: 0000-0003-4808-2781
+  affiliations:
   - name: Université Lumière Lyon 2, Universite Claude Bernard Lyon 1, ERIC, 69007, Lyon, France
 - name: Thomas Brendan Murphy
   email: brendan.murphy@ucd.ie
-  affiliations: 
+  orcid: 0000-0002-5668-7046
+  affiliations:
   - name: School of Mathematics \& Statistics, University College Dublin
   - name: Institut d'Études Avancées, Université de Lyon
 date: 07-01-2025
